@@ -79,7 +79,7 @@ func (c *Conn) Send(data []byte) error {
 
 func (c *Conn) SendMessage(deviceToken []byte, message []byte) (err error) {
 	buf := new(bytes.Buffer)
-	if _, err = buf.Write([]byte{0, 0, 32}); err != nil {
+	if _, err = buf.Write([]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32}); err != nil {
 		return
 	}
 	if _, err = buf.Write(deviceToken); err != nil {
