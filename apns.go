@@ -115,6 +115,7 @@ FOR_LOOP:
 				logger.Warningln("sendLoop() SetWriteDeadline err:", err)
 				break FOR_LOOP
 			}
+			logger.Debugf("sendLoop() data: % 02X\n", data)
 			if _, err = c.c.Write(data); err != nil {
 				logger.Add("Out_E", int64(1))
 				logger.Warningln("sendLoop() Write err:", err)
