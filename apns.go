@@ -17,7 +17,7 @@ const (
 var (
 	LOG_HEADERS  = []string{"Out", "Out_B", "Out_E"}
 	logger       *log.Logger
-	READ_TIMEOUT = time.Second * 3
+	READ_TIMEOUT = time.Second * 3600
 )
 
 var (
@@ -88,7 +88,6 @@ func (c *Conn) SendMessage(deviceToken []byte, message []byte) (err error) {
 	if err = binary.Write(buf, binary.BigEndian, uint16(len(message))); err != nil {
 		return
 	}
-
 	if _, err = buf.Write(message); err != nil {
 		return
 	}
@@ -97,21 +96,7 @@ func (c *Conn) SendMessage(deviceToken []byte, message []byte) (err error) {
 
 func (c *Conn) SendMessageToDevices(deviceTokens [][]byte, message []byte) (err error) {
 	for _, deviceToken := range deviceTokens {
-		buf := new(bytes.Buffer)
-		if _, err = buf.Write([]byte{0, 0, 32}); err != nil {
-			return
-		}
-		if _, err = buf.Write(deviceToken); err != nil {
-			return
-		}
-		if err = binary.Write(buf, binary.BigEndian, uint16(len(message))); err != nil {
-			return
-		}
-
-		if _, err = buf.Write(message); err != nil {
-			return
-		}
-		if err = c.Send(buf.Bytes()); err != nil {
+		if err = c.SendMessage(deviceToken, message); err != nil {
 			return
 		}
 	}
@@ -147,18 +132,31 @@ FOR_LOOP:
 
 func (c *Conn) readLoop() {
 	var err error
+	var n int
 	buf := make([]byte, 256)
 FOR_LOOP:
 	for !c.exit {
+		logger.Debugln("readLoop(): read")
 		// Read response
 		if err = c.c.SetReadDeadline(time.Now().Add(READ_TIMEOUT)); err != nil {
 			logger.Add("Out_E", int64(1))
-			logger.Warningln("sendLoop() SetReadDeadline err:", err)
+			c.Close()
+			logger.Warningln("readLoop() SetReadDeadline err:", err)
 			break FOR_LOOP
 		}
-		if _, err = c.c.Read(buf); err == nil {
-			logger.Debugf("Read: % x\n", buf)
+		if n, err = c.c.Read(buf); err != nil {
+			netErr, ok := err.(net.Error)
+			if ok && netErr.Temporary() {
+				time.Sleep(time.Second)
+			} else {
+				logger.Add("Out_E", int64(1))
+				c.Close()
+				logger.Warningln("readLoop() Read err:", err)
+				break FOR_LOOP
+			}
+		} else {
+			logger.Debugf("readLoop() Read buf: %s\n", string(buf[:n]))
+			// TODO: Check response
 		}
-		// TODO: Check response
 	}
 }
