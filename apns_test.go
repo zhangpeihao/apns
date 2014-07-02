@@ -18,8 +18,8 @@ var (
 
 var (
 	DeviceTokens = []string{
-		strings.Replace("68877dd9 6c573c5e 1ffe1526 eace028b 8ec56798 f8e1f3a4 4454e2d7 a0247f55", " ", "", -1),
-		strings.Replace("f2a55b62 f228a529 5e2f528f 7efc6ecc 2c2b4df3 45fac8f2 58feb23a f78456ee", " ", "", -1),
+		strings.Replace("dadb49f0 6874a2f6 4a9cf19d 0343e94b 7811915a 4f503463 775b69e7 0d479bbf", " ", "", -1),
+		//		strings.Replace("f2a55b62 f228a529 5e2f528f 7efc6ecc 2c2b4df3 45fac8f2 58feb23a f78456ee", " ", "", -1),
 	}
 )
 
@@ -29,11 +29,13 @@ func TestApns(t *testing.T) {
 	g_logger.SetMainLevel(log.LOG_LEVEL_DEBUG)
 	InitLog(g_logger)
 	// Load certificate files
-	cert, err := tls.LoadX509KeyPair("./cert.pem", "./key.pem")
+	cert, err := tls.LoadX509KeyPair("./nvshenol/cert.pem", "./nvshenol/key.pem")
 	if err != nil {
 		t.Fatal("LoadX509KeyPair err:", err)
 	}
-	conn, err := Dial("gateway.sandbox.push.apple.com:2195",
+//	apns_addr := "gateway.sandbox.push.apple.com:2195"
+	apns_addr := "gateway.push.apple.com:2195"
+	conn, err := Dial(apns_addr,
 		[]tls.Certificate{cert},
 		1000,
 		time.Minute)

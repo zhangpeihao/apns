@@ -63,6 +63,7 @@ func Dial(serverAddress string, cert []tls.Certificate, queueSize int,
 
 func (c *Conn) Close() {
 	c.exit = true
+	c.c.Close()
 }
 
 func (c *Conn) Send(data []byte) error {
@@ -139,12 +140,12 @@ FOR_LOOP:
 	for !c.exit {
 		logger.Debugln("readLoop(): read")
 		// Read response
-		if err = c.c.SetReadDeadline(time.Now().Add(READ_TIMEOUT)); err != nil {
-			logger.Add("Out_E", int64(1))
-			c.Close()
-			logger.Warningln("readLoop() SetReadDeadline err:", err)
-			break FOR_LOOP
-		}
+		//if err = c.c.SetReadDeadline(time.Now().Add(READ_TIMEOUT)); err != nil {
+		//	logger.Add("Out_E", int64(1))
+		//	c.Close()
+		//	logger.Warningln("readLoop() SetReadDeadline err:", err)
+		//	break FOR_LOOP
+		//}
 		if n, err = c.c.Read(buf); err != nil {
 			netErr, ok := err.(net.Error)
 			if ok && netErr.Temporary() {
