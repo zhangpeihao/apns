@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	LOG_HEADERS  = []string{"Out", "Out_B", "Out_E"}
+	LOG_HEADERS  = []string{"Out", "Out_E"}
 	logger       *log.Logger
 	READ_TIMEOUT = time.Second * 3600
 )
@@ -32,13 +32,11 @@ func InitLog(l *log.Logger) {
 
 type Conn struct {
 	c           *tls.Conn
-	queue       chan []byte
-	queueSize   int
 	sendTimeout time.Duration
 	exit        bool
 }
 
-func Dial(serverAddress string, cert []tls.Certificate, queueSize int,
+func Dial(serverAddress string, cert []tls.Certificate,
 	sendTimeout time.Duration) (c *Conn, err error) {
 	var conn net.Conn
 	if conn, err = net.Dial("tcp", serverAddress); err != nil {
@@ -52,11 +50,9 @@ func Dial(serverAddress string, cert []tls.Certificate, queueSize int,
 	}
 	c = &Conn{
 		c:           tlsConn,
-		queueSize:   queueSize,
-		queue:       make(chan []byte, queueSize+MIN_QUEUE_SIZE),
 		sendTimeout: sendTimeout,
 	}
-	go c.sendLoop()
+
 	go c.readLoop()
 	return
 }
@@ -66,16 +62,37 @@ func (c *Conn) Close() {
 	c.c.Close()
 }
 
-func (c *Conn) Send(data []byte) error {
+func (c *Conn) readLoop() {
+	var err error
+	buf := make([]byte, 256)
+	for !c.exit {
+		// read response
+		if _, err = c.c.Read(buf); err != nil {
+			logger.Add("Out_E", int64(1))
+			break
+		}
+	}
+	c.Close()
+}
+
+func (c *Conn) Send(data []byte) (err error) {
 	if c.exit {
 		return ErrClosed
 	}
-	if len(c.queue) > c.queueSize {
-		logger.Add("Out_B", int64(1))
-		return ErrBlocked
+	if err = c.c.SetWriteDeadline(time.Now().Add(c.sendTimeout)); err != nil {
+		logger.Add("Out_E", int64(1))
+		logger.Warningln("apns.Conn::Send() SetWriteDeadline err:", err)
+		return
 	}
-	c.queue <- data
-	return nil
+	logger.Debugf("apns.Conn::Send() data: % 02X\n", data)
+	if _, err = c.c.Write(data); err != nil {
+		logger.Add("Out_E", int64(1))
+		logger.Warningln("apns.Conn::Send() Write err:", err)
+		return
+	}
+
+	logger.Add("Out", int64(1))
+	return
 }
 
 func (c *Conn) SendMessage(deviceToken []byte, message []byte) (err error) {
@@ -93,72 +110,4 @@ func (c *Conn) SendMessage(deviceToken []byte, message []byte) (err error) {
 		return
 	}
 	return c.Send(buf.Bytes())
-}
-
-func (c *Conn) SendMessageToDevices(deviceTokens [][]byte, message []byte) (err error) {
-	for _, deviceToken := range deviceTokens {
-		if err = c.SendMessage(deviceToken, message); err != nil {
-			return
-		}
-	}
-	return
-}
-
-func (c *Conn) sendLoop() {
-	var err error
-FOR_LOOP:
-	for !c.exit {
-		select {
-		case data := <-c.queue:
-			logger.Add("Out", int64(1))
-			if err = c.c.SetWriteDeadline(time.Now().Add(c.sendTimeout)); err != nil {
-				logger.Add("Out_E", int64(1))
-				logger.Warningln("sendLoop() SetWriteDeadline err:", err)
-				break FOR_LOOP
-			}
-			logger.Debugf("sendLoop() data: % 02X\n", data)
-			if _, err = c.c.Write(data); err != nil {
-				logger.Add("Out_E", int64(1))
-				logger.Warningln("sendLoop() Write err:", err)
-				break FOR_LOOP
-			}
-		case <-time.After(time.Second):
-			// Check close
-			if c.exit {
-				break FOR_LOOP
-			}
-		}
-	}
-	c.exit = true
-}
-
-func (c *Conn) readLoop() {
-	var err error
-	var n int
-	buf := make([]byte, 256)
-FOR_LOOP:
-	for !c.exit {
-		logger.Debugln("readLoop(): read")
-		// Read response
-		//if err = c.c.SetReadDeadline(time.Now().Add(READ_TIMEOUT)); err != nil {
-		//	logger.Add("Out_E", int64(1))
-		//	c.Close()
-		//	logger.Warningln("readLoop() SetReadDeadline err:", err)
-		//	break FOR_LOOP
-		//}
-		if n, err = c.c.Read(buf); err != nil {
-			netErr, ok := err.(net.Error)
-			if ok && netErr.Temporary() {
-				time.Sleep(time.Second)
-			} else {
-				logger.Add("Out_E", int64(1))
-				c.Close()
-				logger.Warningln("readLoop() Read err:", err)
-				break FOR_LOOP
-			}
-		} else {
-			logger.Debugf("readLoop() Read buf: %s\n", string(buf[:n]))
-			// TODO: Check response
-		}
-	}
 }

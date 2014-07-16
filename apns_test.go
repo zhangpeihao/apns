@@ -33,11 +33,10 @@ func TestApns(t *testing.T) {
 	if err != nil {
 		t.Fatal("LoadX509KeyPair err:", err)
 	}
-//	apns_addr := "gateway.sandbox.push.apple.com:2195"
+	//	apns_addr := "gateway.sandbox.push.apple.com:2195"
 	apns_addr := "gateway.push.apple.com:2195"
 	conn, err := Dial(apns_addr,
 		[]tls.Certificate{cert},
-		1000,
 		time.Minute)
 	if err != nil {
 		t.Fatal("Dial err:", err)
@@ -46,8 +45,6 @@ func TestApns(t *testing.T) {
 
 	message1 := []byte(`{"aps":{"alert":"Test1"}}`)
 	message2 := []byte(`{"aps":{"alert":"Test2"}}`)
-	message3 := []byte(`{"aps":{"alert":"Test3"}}`)
-	var deviceTokens [][]byte
 	for _, token := range DeviceTokens {
 		buf := new(bytes.Buffer)
 		if _, err = buf.Write([]byte{0, 0, 32}); err != nil {
@@ -77,10 +74,6 @@ func TestApns(t *testing.T) {
 		if err = conn.SendMessage(tokenBuf, message2); err != nil {
 			t.Fatal("conn.SendMessage err:", err)
 		}
-		deviceTokens = append(deviceTokens, tokenBuf)
-	}
-	if err = conn.SendMessageToDevices(deviceTokens, message3); err != nil {
-		t.Fatal("conn.SendMessageToDevices err:", err)
 	}
 	time.Sleep(3 * time.Second)
 	fmt.Println(`\\\\\\\\\\\\\\\\\\\\ TestApns ////////////////////`)
