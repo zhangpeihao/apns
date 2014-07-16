@@ -68,9 +68,14 @@ func (c *Conn) readLoop() {
 	for !c.exit {
 		// read response
 		if _, err = c.c.Read(buf); err != nil {
-			logger.Add("Out_E", int64(1))
-			logger.Debugln("apns.Conn::readLoop() Read err:", err)
-			break
+			netErr, ok := err.(net.Error)
+			if ok && netErr.Temporary() {
+				time.Sleep(time.Second)
+			} else {
+				logger.Add("Out_E", int64(1))
+				logger.Debugln("apns.Conn::readLoop() Read err:", err)
+				break
+			}
 		}
 	}
 	c.Close()
