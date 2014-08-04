@@ -39,12 +39,15 @@ type Conn struct {
 func Dial(serverAddress string, cert []tls.Certificate,
 	sendTimeout time.Duration) (c *Conn, err error) {
 	var conn net.Conn
-	if conn, err = net.Dial("tcp", serverAddress); err != nil {
+	if conn, err = net.DialTimeout("tcp", serverAddress, sendTimeout); err != nil {
 		return
 	}
 	tlsConn := tls.Client(conn, &tls.Config{
 		Certificates: cert,
 	})
+	if err = tlsConn.SetWriteDeadline(time.Now().Add(c.sendTimeout)); err != nil {
+		return
+	}
 	if err = tlsConn.Handshake(); err != nil {
 		return
 	}
@@ -63,19 +66,24 @@ func (c *Conn) Close() {
 }
 
 func (c *Conn) readLoop() {
-	var err error
+	//	var err error
 	buf := make([]byte, 256)
 	for !c.exit {
 		// read response
-		if _, err = c.c.Read(buf); err != nil {
+		if n, err := c.c.Read(buf); err != nil {
 			netErr, ok := err.(net.Error)
 			if ok && netErr.Temporary() {
 				time.Sleep(time.Second)
 			} else {
 				logger.Add("Out_E", int64(1))
 				logger.Debugln("apns.Conn::readLoop() Read err:", err)
+				if n > 0 {
+					logger.Debugf("APNS read %02X\n", buf)
+				}
 				break
 			}
+		} else {
+			logger.Debugf("APNS read %02X\n", buf)
 		}
 	}
 	c.Close()
@@ -90,7 +98,7 @@ func (c *Conn) Send(data []byte) (err error) {
 		logger.Warningln("apns.Conn::Send() SetWriteDeadline err:", err)
 		return
 	}
-	logger.Debugf("apns.Conn::Send() data: % 02X\n", data)
+	logger.Debugf("sendLoop() data: % 02X\n", data)
 	if _, err = c.c.Write(data); err != nil {
 		logger.Add("Out_E", int64(1))
 		logger.Warningln("apns.Conn::Send() Write err:", err)
@@ -103,7 +111,7 @@ func (c *Conn) Send(data []byte) (err error) {
 
 func (c *Conn) SendMessage(deviceToken []byte, message []byte) (err error) {
 	buf := new(bytes.Buffer)
-	if _, err = buf.Write([]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32}); err != nil {
+	if _, err = buf.Write([]byte{0, 0, 32}); err != nil {
 		return
 	}
 	if _, err = buf.Write(deviceToken); err != nil {
