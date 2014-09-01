@@ -45,12 +45,15 @@ func Dial(serverAddress string, cert []tls.Certificate,
 	tlsConn := tls.Client(conn, &tls.Config{
 		Certificates: cert,
 	})
-	if err = tlsConn.SetWriteDeadline(time.Now().Add(sendTimeout)); err != nil {
+	if err = tlsConn.SetDeadline(time.Now().Add(sendTimeout)); err != nil {
 		return
 	}
+	logger.Debugln("apnd.Dial() Handshake")
 	if err = tlsConn.Handshake(); err != nil {
+		logger.Debugln("apnd.Dial() Handshake failed")
 		return
 	}
+	logger.Debugln("apnd.Dial() Handshake success")
 	c = &Conn{
 		c:           tlsConn,
 		sendTimeout: sendTimeout,
@@ -67,7 +70,13 @@ func (c *Conn) Close() {
 
 func (c *Conn) readLoop() {
 	//	var err error
-	buf := make([]byte, 256)
+	if err := c.c.SetReadDeadline(time.Unix(9999999999, 0)); err != nil {
+		logger.Add("Out_E", int64(1))
+		logger.Warningln("apns.Conn::readLoop() SetReadDeadline err:", err)
+		c.Close()
+		return
+	}
+	buf := make([]byte, 6)
 	for !c.exit {
 		// read response
 		if n, err := c.c.Read(buf); err != nil {
