@@ -54,6 +54,7 @@ func Dial(serverAddress string, cert []tls.Certificate,
 		if err = tlsConn.Handshake(); err != nil {
 			logger.Debugln("apnd.Dial() Handshake failed")
 			ch <- false
+			return
 		}
 		logger.Debugln("apnd.Dial() Handshake success")
 		ch <- true
