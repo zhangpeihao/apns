@@ -23,6 +23,7 @@ var (
 var (
 	ErrClosed  = errors.New("Closed")
 	ErrBlocked = errors.New("Blocked")
+	ErrTimeout = errors.New("Timeout")
 )
 
 func InitLog(l *log.Logger) {
@@ -67,6 +68,7 @@ func Dial(serverAddress string, cert []tls.Certificate,
 	case <-time.After(time.Second * time.Duration(5)):
 		logger.Debugln("apnd.Dial() Handshake timeout")
 		tlsConn.Close()
+		err = ErrTimeout
 		return
 	}
 	c = &Conn{
