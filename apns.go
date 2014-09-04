@@ -44,7 +44,8 @@ func Dial(serverAddress string, cert []tls.Certificate,
 		return
 	}
 	tlsConn := tls.Client(conn, &tls.Config{
-		Certificates: cert,
+		Certificates:       cert,
+		InsecureSkipVerify: true,
 	})
 	if err = tlsConn.SetWriteDeadline(time.Now().Add(sendTimeout)); err != nil {
 		return
