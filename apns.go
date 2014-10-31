@@ -81,6 +81,10 @@ func Dial(serverAddress string, cert []tls.Certificate,
 	return
 }
 
+func (c *Conn) Closed() bool {
+	return c.exit
+}
+
 func (c *Conn) Close() {
 	c.exit = true
 	c.c.Close()
