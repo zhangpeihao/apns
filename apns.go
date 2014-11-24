@@ -50,15 +50,15 @@ func Dial(serverAddress string, cert []tls.Certificate,
 	if err = tlsConn.SetWriteDeadline(time.Now().Add(sendTimeout)); err != nil {
 		return
 	}
-	handshakeChan := make(chan bool)
+	handshakeChan := make(chan bool, 1)
 	go func(ch chan<- bool) {
-		logger.Debugln("apnd.Dial() Handshake")
+		logger.Debugln("apns.Dial() Handshake")
 		if err = tlsConn.Handshake(); err != nil {
 			logger.Debugln("apnd.Dial() Handshake failed")
 			ch <- false
 			return
 		}
-		logger.Debugln("apnd.Dial() Handshake success")
+		logger.Debugln("apns.Dial() Handshake success")
 		ch <- true
 	}(handshakeChan)
 	select {
