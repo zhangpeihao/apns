@@ -68,6 +68,7 @@ func Dial(serverAddress string, cert []tls.Certificate,
 		}
 	case <-time.After(time.Second * time.Duration(5)):
 		logger.Debugln("apnd.Dial() Handshake timeout")
+		conn.Close()
 		tlsConn.Close()
 		err = ErrTimeout
 		return
