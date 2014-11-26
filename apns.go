@@ -99,7 +99,7 @@ func (c *Conn) readLoop() {
 		c.Close()
 		return
 	}
-	buf := make([]byte, 6)
+	buf := make([]byte, 6, 6)
 	for !c.exit {
 		// read response
 		if n, err := c.c.Read(buf); err != nil {
@@ -153,6 +153,87 @@ func (c *Conn) SendMessage(deviceToken []byte, message []byte) (err error) {
 		return
 	}
 	if _, err = buf.Write(message); err != nil {
+		return
+	}
+	return c.Send(buf.Bytes())
+}
+
+func (c *Conn) SendMessage1(deviceToken []byte, message []byte) (err error) {
+	buf := new(bytes.Buffer)
+	if err = buf.WriteByte(byte(1)); err != nil {
+		return
+	}
+	if _, err = buf.Write(deviceToken[:4]); err != nil {
+		return
+	}
+	expiration := uint32(time.Now().Unix()) + 7*24*3600
+	if err = binary.Write(buf, binary.BigEndian, expiration); err != nil {
+		return
+	}
+	if err = binary.Write(buf, binary.BigEndian, uint16(len(deviceToken))); err != nil {
+		return
+	}
+	if _, err = buf.Write(deviceToken); err != nil {
+		return
+	}
+	if err = binary.Write(buf, binary.BigEndian, uint16(len(message))); err != nil {
+		return
+	}
+	if _, err = buf.Write(message); err != nil {
+		return
+	}
+	return c.Send(buf.Bytes())
+}
+
+func (c *Conn) SendMessage2(deviceToken []byte, message []byte) (err error) {
+	buf := new(bytes.Buffer)
+	if err = buf.WriteByte(byte(2)); err != nil {
+		return
+	}
+	msglen := len(message)
+	framelen := uint32(msglen+3) + (32 + 3) + (4 + 3) + (4 + 3)
+	if err = binary.Write(buf, binary.BigEndian, framelen); err != nil {
+		return
+	}
+	// Token
+	if err = buf.WriteByte(byte(1)); err != nil {
+		return
+	}
+	if err = binary.Write(buf, binary.BigEndian, uint16(32)); err != nil {
+		return
+	}
+	if _, err = buf.Write(deviceToken); err != nil {
+		return
+	}
+	// Payload
+	if err = buf.WriteByte(byte(2)); err != nil {
+		return
+	}
+	if err = binary.Write(buf, binary.BigEndian, uint16(msglen)); err != nil {
+		return
+	}
+	if _, err = buf.Write(message); err != nil {
+		return
+	}
+	// Notification identifier
+	if err = buf.WriteByte(byte(3)); err != nil {
+		return
+	}
+	if err = binary.Write(buf, binary.BigEndian, uint16(4)); err != nil {
+		return
+	}
+	if _, err = buf.Write(deviceToken[:4]); err != nil {
+		return
+	}
+	// Expiration
+	expiration := uint32(time.Now().Unix()) + 7*24*3600
+	if err = buf.WriteByte(byte(4)); err != nil {
+		return
+	}
+	if err = binary.Write(buf, binary.BigEndian, uint16(4)); err != nil {
+		return
+	}
+	if err = binary.Write(buf, binary.BigEndian, expiration); err != nil {
 		return
 	}
 	return c.Send(buf.Bytes())
