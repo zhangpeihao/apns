@@ -195,7 +195,7 @@ func apnsHandler(w http.ResponseWriter, req *http.Request) {
 	//	g_logger.Debugf("tokens: %+v\n", tokens)
 	msgData := &Message{
 		Tokens: tokens,
-		Data:   []byte(msg),
+		Data:   []byte([]byte(`{"aps":{"alert":"` + msg + `"}}`)),
 	}
 	g_logger.Debugln("Before push")
 	g_queue <- msgData
@@ -227,7 +227,7 @@ func sendTestData(token []byte, ch chan<- string) {
 		return
 	}
 	defer conn.Close()
-	err = conn.SendMessage2(tokenBuf, testData)
+	err = conn.SendMessage(tokenBuf, testData)
 	if err != nil {
 		g_logger.Printf("sendTestData() SendMessage err: %s\n", err)
 		ch <- string(token) + ":UNKNOWN"
@@ -267,7 +267,7 @@ func send(conn *apns.Conn, msg *Message) {
 
 	for _, deviceToken := range msg.Tokens {
 		for !g_exit {
-			err := conn.SendMessage2(deviceToken, msg.Data)
+			err := conn.SendMessage(deviceToken, msg.Data)
 			if err != nil {
 				// Reconnect
 				g_logger.Debugln("Send to device err:", err)
